@@ -1,64 +1,109 @@
-import { Component } from 'react';
-import css from './ImageGallery.module.css';
 import { ImageGalleryItem } from '../ImageGalleryItem/ImageGalleryItem';
+import { Component } from 'react';
+import { getImages } from '../../axiosImages';
+import { ButtonLoadMore } from 'components/Button/Button';
+import { Report } from 'notiflix/build/notiflix-report-aio';
+import { Modal } from '../Modal/Modal';
+// import { ColorRing } from 'react-loader-spinner';
 import Loader from '../Loader/Loader';
-import { Button } from '../Button/Button';
+import PropTypes from 'prop-types';
 
-// import PropTypes from 'prop-types';
-
-export class ImageGallery extends Component {
+class ImageGallery extends Component {
   state = {
-    images: null,
-    error: null,
-    status: 'idle',
-    // isModal: '',
+    page: 1,
+    gallery: [],
+    isLoading: false,
+    // isListShow: false,
+    isLoadMore: false,
+    isModal: '',
   };
 
   componentDidUpdate(prevProps, prevState) {
-    const API_KEY = '35100537-1d0c28a954e9bd50abce0836f';
-    const URL = 'https://pixabay.com/api';
-    const PER_PAGE = 'per_page=12';
-    if (prevProps.request !== this.props.request) {
-      this.setState({ status: 'pending' });
-      fetch(
-        `${URL}/?q=${this.props.request}&page=1&key=${API_KEY}&image_type=photo&orientation=horizontal&${PER_PAGE}`
-      )
-        .then(res => {
-          return res.json();
-        })
-        .then(imageArray => {
-          if (imageArray.hits.length) {
-            return imageArray;
-          }
-          return Promise.reject(
-            new Error(`No pictures on request "${this.props.request}"`)
-          );
-        })
-        .then(images => this.setState({ images, status: 'resolved' }))
-        .catch(error => this.setState({ error, status: 'rejected' }));
+    if (prevProps.search !== this.props.search) {
+      this.setState({ page: 1, gallery: [] });
+      if (this.state.page === 1) {
+        this.queryImages();
+        return;
+      }
+    }
+    if (prevState.page !== this.state.page) {
+      this.queryImages();
     }
   }
+
+  queryImages = () => {
+    this.setState({ isLoading: true, isLoadMore: false });
+    getImages(this.props.search, this.state.page)
+      .then(response => {
+        if (response.length !== 0) {
+          this.setState(prevState => ({
+            isLoadMore: true,
+            isLoading: false,
+            gallery: [...prevState.gallery, ...response],
+          }));
+        } else if (response.length === 0) {
+          Report.failure('No more images to load', 'Okay');
+          this.setState({
+            isLoadMore: false,
+          });
+        }
+      })
+      .catch(error => {
+        console.log('error :>> ', error);
+      })
+      .finally(() => {
+        this.setState({ isLoading: false });
+      });
+  };
+
+  loadMore = () => {
+    this.setState(prevState => ({ page: prevState.page + 1 }));
+  };
+
+  handleModal = largeImageURL => {
+    this.setState({ isModal: largeImageURL });
+  };
+
+  closeModal = () => {
+    this.setState({ isModal: null });
+  };
 
   render() {
-    const { images, error, status } = this.state;
-    if (status === 'idle') {
-      return <h1 className={css.messageTitle}>⬆️ Enter Request ⬆️</h1>;
-    }
-    if (status === 'pending') {
-      return <Loader />;
-    }
-    if (status === 'rejected') {
-      return <h1 className={css.messageTitle}>{error.message}</h1>;
-    }
+    const { gallery, isLoadMore, isModal, isLoading } = this.state;
 
-    if (status === 'resolved') {
-      // const { isModal } = this.state;
-      return (
-        <>
-          <ImageGalleryItem images={images} />
-          <Button />
-        </>
-      );
-    }
+    return (
+      <>
+        {!gallery.length && !isLoading && (
+          <h1 className="messageTitle">⬆️ Enter Request ⬆️</h1>
+        )}
+        <ul className="ImageGallery">
+          {gallery.map(({ webformatURL, tags, id, largeImageURL }) => {
+            return (
+              <ImageGalleryItem
+                id={id}
+                link={webformatURL}
+                title={tags}
+                key={id}
+                largeImage={largeImageURL}
+                handleModal={this.handleModal}
+              />
+            );
+          })}
+        </ul>
+        {isLoading && (
+          <div className="spinner">
+            <Loader />
+          </div>
+        )}
+        {isLoadMore && <ButtonLoadMore loadMore={this.loadMore} />}
+        {isModal && <Modal largeImage={isModal} closeModal={this.closeModal} />}
+      </>
+    );
   }
 }
+
+export { ImageGallery };
+
+ImageGallery.propTypes = {
+  search: PropTypes.string.isRequired,
+};
