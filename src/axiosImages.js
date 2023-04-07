@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const key = `33344589-afa1c8c0d7150dc22fd06ea0f`;
+const key = `35100537-1d0c28a954e9bd50abce0836f`;
 const parameters = `?key=${key}&image_type=photo&orientation=horizontal&per_page=12`;
 axios.defaults.baseURL = 'https://pixabay.com/api/';
 
